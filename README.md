@@ -121,6 +121,26 @@ PYTHONPATH=src python main.py --benchmark --export-html reports/audit.html
 PYTHONPATH=src python main.py --fuzz --runs 30 --seed 42 --json
 ```
 
+### 1b. Tuning the adversarial fuzz campaign
+
+`--fuzz` draws each scenario from a seeded generator; every probability is in `[0, 1]`
+and out-of-range values are rejected at the parameter boundary:
+
+| Flag | Default | Meaning |
+|---|---:|---|
+| `--runs` | `30` | Number of fuzzed scenarios to generate |
+| `--seed` | `42` | Deterministic RNG seed |
+| `--injection-prob` | `0.35` | Indirect prompt-injection probability |
+| `--transient-prob` | `0.40` | Transient fault probability (`http_503`, `timeout`, `rate_limit`) |
+| `--persistent-prob` | `0.15` | Persistent outage probability |
+| `--malformed-prob` | `0.20` | Malformed JSON probability |
+| `--dirty-prob` | `0.25` | Dirty input schema probability |
+
+```bash
+# Injection-heavy campaign
+PYTHONPATH=src python main.py --fuzz --runs 100 --seed 7 --injection-prob 0.8 --transient-prob 0.1
+```
+
 Add `--min-composite FLOAT` to gate a CI job: the run exits non-zero when no
 evaluated policy reaches the composite threshold in `[0, 100]` (with `--policies`
 the gate applies to the named policies only), and an out-of-range threshold is
@@ -136,6 +156,9 @@ PYTHONPATH=src python main.py --benchmark --policies TraceGuardHardenedAgent --m
 PYTHONPATH=src python main.py --serve --port 8000
 # Open http://127.0.0.1:8000 in your browser
 ```
+
+`--serve` binds to `127.0.0.1` by default; pass `--host 0.0.0.0` to expose the Studio
+beyond localhost (for example inside a container).
 
 ### 3. Run Tests & Shortcuts via Makefile
 
