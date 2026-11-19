@@ -121,6 +121,15 @@ PYTHONPATH=src python main.py --benchmark --export-html reports/audit.html
 PYTHONPATH=src python main.py --fuzz --runs 30 --seed 42 --json
 ```
 
+Add `--min-composite FLOAT` to gate a CI job: the run exits non-zero when no
+evaluated policy reaches the composite threshold in `[0, 100]` (with `--policies`
+the gate applies to the named policies only), and an out-of-range threshold is
+rejected rather than silently disabling the gate:
+
+```bash
+PYTHONPATH=src python main.py --benchmark --policies TraceGuardHardenedAgent --min-composite 90
+```
+
 ### 2. Launch the Interactive Trace Replay Studio
 
 ```bash

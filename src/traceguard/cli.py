@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 import uvicorn
 
-from traceguard.contracts import FaultMix
+from traceguard.contracts import FaultMix, PolicyBenchmarkRow
 from traceguard.evaluator import (
     evaluate_policies,
     format_leaderboard_markdown,
@@ -46,6 +47,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--serve", action="store_true", help="Launch the FastAPI Trace Replay Studio web server.")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host for --serve (default: 127.0.0.1).")
     parser.add_argument("--port", type=int, default=8000, help="Bind port for --serve (default: 8000).")
+    parser.add_argument(
+        "--min-composite",
+        type=float,
+        default=None,
+        help=(
+            "Exit non-zero when no evaluated policy reaches this composite score "
+            "in [0, 100], so the benchmark can gate a CI job."
+        ),
+    )
     return parser
 
 
@@ -61,6 +71,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     run_bench = args.benchmark or (not args.fuzz)
     output_payload: dict[str, Any] = {}
     last_leaderboard = []
+    all_rows: list[PolicyBenchmarkRow] = []
     last_trajectories = []
     report_meta: dict[str, Any] = {}
     report_title = "TraceGuard Trajectory Audit Report"
@@ -69,6 +80,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         scenarios = get_builtin_scenarios()
         leaderboard, trajectories = evaluate_policies(scenarios, args.policies)
         last_leaderboard = leaderboard
+        all_rows.extend(leaderboard)
         last_trajectories = trajectories
         report_title = "TraceGuard 12-Scenario Suite Audit Report"
         report_meta = {"mode": "benchmark", "scenarios": len(scenarios)}
@@ -95,6 +107,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         breakdown = TraceFuzzer.summarize_mix(tasks)
         leaderboard, trajectories = evaluate_policies(tasks, args.policies)
         last_leaderboard = leaderboard
+        all_rows.extend(leaderboard)
         last_trajectories = trajectories
         report_title = f"TraceGuard Adversarial Fuzz Report (runs={mix.runs}, seed={mix.seed})"
         report_meta = {"mode": "fuzz", "runs": mix.runs, "seed": mix.seed}
@@ -129,7 +142,30 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.as_json:
         print(json.dumps(output_payload, indent=2))
 
-    return 0
+    return exit_code_for(all_rows, args.min_composite)
+
+
+def exit_code_for(
+    rows: Sequence[PolicyBenchmarkRow], min_composite: Optional[float]
+) -> int:
+    """Map benchmark rows to a process exit code under a score gate.
+
+    Returns 0 when no threshold is given or some evaluated policy reaches it,
+    and 1 when the best composite score is below the threshold or no policies
+    were evaluated. With ``--policies`` the gate applies to the named policies
+    only. The threshold must be a finite value in [0, 100]; anything else raises
+    ``ValueError`` so a typo cannot silently disable gating.
+    """
+    if min_composite is None:
+        return 0
+    if not math.isfinite(min_composite) or not 0.0 <= min_composite <= 100.0:
+        raise ValueError(
+            "min_composite must be a finite value in [0, 100]; "
+            f"got {min_composite!r}"
+        )
+    if not rows:
+        return 1
+    return 1 if max(row.composite_score for row in rows) < min_composite else 0
 
 
 if __name__ == "__main__":
