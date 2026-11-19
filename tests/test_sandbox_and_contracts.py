@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 
+import pytest
+from pydantic import ValidationError
+
 from traceguard.contracts import FaultConfig, ParamConstraint, ScenarioTask, ToolSpec
 from traceguard.sandbox import TOOL_REGISTRY, ExecutionSandbox
 
@@ -60,6 +63,31 @@ def test_numeric_constraints_report_large_integer_out_of_range_without_overflow(
 
     assert len(errors) == 1
     assert "exceeds max_value=100.0" in errors[0]
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("latency_ms", float("nan")),
+        ("latency_ms", float("inf")),
+        ("requires_backoff_ms", float("inf")),
+        ("requires_backoff_ms", -1.0),
+    ],
+)
+def test_fault_config_rejects_invalid_timing(field: str, value: float) -> None:
+    with pytest.raises(ValidationError):
+        FaultConfig(target_tool="fetch_order", fault_type="timeout", **{field: value})
+
+
+def test_scenario_task_requires_positive_step_budget() -> None:
+    with pytest.raises(ValidationError):
+        ScenarioTask(
+            scenario_id="TEST-STEPS",
+            title="Invalid step budget",
+            category="nominal",
+            user_prompt="Test",
+            max_steps=0,
+        )
 
 
 def test_registry_contains_six_tools_with_expected_permissions() -> None:

@@ -145,10 +145,10 @@ class FaultConfig(BaseModel):
     fault_type: FaultKind
     trigger_on_attempts: list[int] = Field(default_factory=lambda: [1])
     persistent: bool = False
-    requires_backoff_ms: float = 0.0
+    requires_backoff_ms: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
     injection_payload: Optional[str] = None
     injected_tool_call: Optional[dict[str, Any]] = None
-    latency_ms: float = 45.0
+    latency_ms: float = Field(default=45.0, ge=0.0, allow_inf_nan=False)
     description: str = ""
 
 
@@ -171,7 +171,7 @@ class ScenarioTask(BaseModel):
     dirty_order_id: Optional[str] = None
     dirty_amount: Optional[Any] = None
     dirty_reason: Optional[str] = None
-    max_steps: int = 12
+    max_steps: int = Field(default=12, ge=1)
     description: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
