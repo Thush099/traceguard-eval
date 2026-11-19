@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Literal, Optional
 
@@ -94,9 +95,11 @@ class ParamConstraint(BaseModel):
         elif self.param_type == "number":
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 return [f"Parameter '{self.name}' must be numeric, got {type(value).__name__}."]
-            if self.min_value is not None and float(value) < self.min_value:
+            if isinstance(value, float) and not math.isfinite(value):
+                return [f"Parameter '{self.name}' must be finite."]
+            if self.min_value is not None and value < self.min_value:
                 errors.append(f"Parameter '{self.name}'={value} is below min_value={self.min_value}.")
-            if self.max_value is not None and float(value) > self.max_value:
+            if self.max_value is not None and value > self.max_value:
                 errors.append(f"Parameter '{self.name}'={value} exceeds max_value={self.max_value}.")
 
         return errors

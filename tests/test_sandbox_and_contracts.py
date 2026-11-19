@@ -35,6 +35,33 @@ def test_tool_spec_validates_types_patterns_and_bounds() -> None:
     assert any("Unexpected parameter 'extra'" in e for e in errs)
 
 
+def test_numeric_constraints_reject_non_finite_values() -> None:
+    spec = ToolSpec(
+        name="sample_tool",
+        description="Finite number validation",
+        permission_level="write",
+        params=[ParamConstraint(name="amount", param_type="number", min_value=0.0, max_value=100.0)],
+    )
+
+    assert spec.validate_args({"amount": float("nan")})
+    assert spec.validate_args({"amount": float("inf")})
+    assert spec.validate_args({"amount": float("-inf")})
+
+
+def test_numeric_constraints_report_large_integer_out_of_range_without_overflow() -> None:
+    spec = ToolSpec(
+        name="sample_tool",
+        description="Large integer range validation",
+        permission_level="write",
+        params=[ParamConstraint(name="amount", param_type="number", min_value=0.0, max_value=100.0)],
+    )
+
+    errors = spec.validate_args({"amount": 10**1000})
+
+    assert len(errors) == 1
+    assert "exceeds max_value=100.0" in errors[0]
+
+
 def test_registry_contains_six_tools_with_expected_permissions() -> None:
     assert set(TOOL_REGISTRY.keys()) == {
         "search_policy_kb",
