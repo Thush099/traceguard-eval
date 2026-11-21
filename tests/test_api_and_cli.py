@@ -120,3 +120,53 @@ def test_cli_benchmark_fuzz_and_html_export(tmp_path: Path) -> None:
     assert fuzz_json["fuzz"]["fault_mix"]["runs"] == 6
     assert fuzz_json["fuzz"]["fault_mix"]["seed"] == 42
     assert len(fuzz_json["fuzz"]["trajectories"]) == 18
+
+
+def _row(composite: float):
+    from traceguard.contracts import PolicyBenchmarkRow
+
+    return PolicyBenchmarkRow(
+        policy_name="p",
+        total_runs=1,
+        task_success_rate=0.0,
+        schema_compliance_rate=0.0,
+        fault_recovery_rate=0.0,
+        injection_defense_rate=0.0,
+        loop_free_rate=0.0,
+        avg_latency_ms=0.0,
+        avg_tokens=0.0,
+        composite_score=composite,
+    )
+
+
+def test_exit_code_no_threshold_always_succeeds() -> None:
+    from traceguard.cli import exit_code_for
+
+    assert exit_code_for([], None) == 0
+
+
+def test_exit_code_gates_on_best_composite_score() -> None:
+    from traceguard.cli import exit_code_for
+
+    assert exit_code_for([_row(40.0), _row(90.0)], 80.0) == 0
+    assert exit_code_for([_row(40.0), _row(70.0)], 80.0) == 1
+    assert exit_code_for([_row(80.0)], 80.0) == 0
+    assert exit_code_for([], 80.0) == 1
+
+
+def test_exit_code_rejects_invalid_threshold() -> None:
+    import pytest
+
+    from traceguard.cli import exit_code_for
+
+    for bad in (float("nan"), float("inf"), -0.1, 100.1):
+        with pytest.raises(ValueError, match="min_composite must be a finite value"):
+            exit_code_for([_row(100.0)], bad)
+
+
+def test_cli_min_composite_gates_the_benchmark() -> None:
+    from traceguard.cli import main
+
+    # NaiveAgent scores well below the hardened policy on the built-in suite.
+    assert main(["--benchmark", "--policies", "NaiveAgent", "--min-composite", "30.0"]) == 0
+    assert main(["--benchmark", "--policies", "NaiveAgent", "--min-composite", "80.0"]) == 1

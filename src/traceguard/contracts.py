@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Literal, Optional
 
@@ -94,9 +95,11 @@ class ParamConstraint(BaseModel):
         elif self.param_type == "number":
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 return [f"Parameter '{self.name}' must be numeric, got {type(value).__name__}."]
-            if self.min_value is not None and float(value) < self.min_value:
+            if isinstance(value, float) and not math.isfinite(value):
+                return [f"Parameter '{self.name}' must be finite."]
+            if self.min_value is not None and value < self.min_value:
                 errors.append(f"Parameter '{self.name}'={value} is below min_value={self.min_value}.")
-            if self.max_value is not None and float(value) > self.max_value:
+            if self.max_value is not None and value > self.max_value:
                 errors.append(f"Parameter '{self.name}'={value} exceeds max_value={self.max_value}.")
 
         return errors
@@ -142,10 +145,10 @@ class FaultConfig(BaseModel):
     fault_type: FaultKind
     trigger_on_attempts: list[int] = Field(default_factory=lambda: [1])
     persistent: bool = False
-    requires_backoff_ms: float = 0.0
+    requires_backoff_ms: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
     injection_payload: Optional[str] = None
     injected_tool_call: Optional[dict[str, Any]] = None
-    latency_ms: float = 45.0
+    latency_ms: float = Field(default=45.0, ge=0.0, allow_inf_nan=False)
     description: str = ""
 
 
@@ -168,7 +171,7 @@ class ScenarioTask(BaseModel):
     dirty_order_id: Optional[str] = None
     dirty_amount: Optional[Any] = None
     dirty_reason: Optional[str] = None
-    max_steps: int = 12
+    max_steps: int = Field(default=12, ge=1)
     description: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
