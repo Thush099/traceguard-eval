@@ -1,5 +1,7 @@
 # TraceGuard Eval
 
+[![CI](https://github.com/Thush099/traceguard-eval/actions/workflows/tests.yml/badge.svg)](https://github.com/Thush099/traceguard-eval/actions/workflows/tests.yml)
+
 **Multi-Step AI Agent Trajectory Simulator, Indirect Prompt-Injection & Fault Fuzzer, and Interactive Trace Replay Studio**
 
 `traceguard-eval` is an end-to-end reliability and security evaluation harness for tool-calling AI agents operating over enterprise support and operations workflows. It models a deterministic multi-tool sandbox with composable fault middleware (`http_503`, `timeout`, `rate_limit`, `malformed_json`, `partial_truncate`, and indirect `prompt_injection`), compares three progressive agent architectures across a 12-scenario evaluation suite and seeded fuzz campaigns, and serves a dark-mode **Trace Replay & Agent Reliability Studio** over FastAPI.
